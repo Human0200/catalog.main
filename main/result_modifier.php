@@ -198,24 +198,65 @@ $arResult['GALLERY'] = TSolution\Functions::getSliderForItem([
 if($arParams['SHOW_BIG_GALLERY'] === 'Y'){
 	$arResult['BIG_GALLERY'] = array();
 	
+	
+	if($arResult['GALLERY'] && is_array($arResult['GALLERY'])){
+		foreach($arResult['GALLERY'] as $galleryItem){
+			$alt = $galleryItem['ALT'] ?: $arResult['NAME'];
+			$title = $galleryItem['TITLE'] ?: $arResult['NAME'];
+			
+			
+			$imageId = null;
+			if(isset($galleryItem['ID'])) {
+				$imageId = $galleryItem['ID'];
+			} elseif(isset($galleryItem['SRC'])) {
+				// Пытаемся найти ID по пути к файлу
+				$imageId = CFile::GetIDByPath($galleryItem['SRC']);
+			}
+			
+			$arResult['BIG_GALLERY'][] = array(
+				'DETAIL' => [
+					'SRC' => $galleryItem['BIG']['src'] ? $galleryItem['BIG']['src'] : $galleryItem['SRC'],
+					'WIDTH' => $galleryItem['BIG']['width'] ?? null,
+					'HEIGHT' => $galleryItem['BIG']['height'] ?? null,
+				],
+				'PREVIEW' => CFile::ResizeImageGet($imageId, array('width' => 1500, 'height' => 1500), BX_RESIZE_IMAGE_PROPORTIONAL_ALT, true),
+				'THUMB' => CFile::ResizeImageGet($imageId, array('width' => 60, 'height' => 60), BX_RESIZE_IMAGE_EXACT, true),
+				'TITLE' => $title,
+				'ALT' => $alt,
+			);
+		}
+	}
+	
+	
 	if(
 		$arParams['BIG_GALLERY_PROP_CODE'] && 
 		isset($arResult['PROPERTIES'][$arParams['BIG_GALLERY_PROP_CODE']]) && 
 		$arResult['PROPERTIES'][$arParams['BIG_GALLERY_PROP_CODE']]['VALUE']
 	){
 		foreach($arResult['PROPERTIES'][$arParams['BIG_GALLERY_PROP_CODE']]['VALUE'] as $img){
-			$arPhoto = CFile::GetFileArray($img);
+			// Проверяем, что такой картинки еще нет в массиве (избегаем дублирования)
+			$imgPath = CFile::GetPath($img);
+			$alreadyExists = false;
+			foreach($arResult['BIG_GALLERY'] as $existingItem){
+				if($existingItem['DETAIL']['SRC'] == $imgPath){
+					$alreadyExists = true;
+					break;
+				}
+			}
+			
+			if(!$alreadyExists){
+				$arPhoto = CFile::GetFileArray($img);
+				$alt = $arPhoto['DESCRIPTION'] ?: ($arPhoto['ALT'] ?: $arResult['NAME']);
+				$title = $arPhoto['DESCRIPTION'] ?: ($arPhoto['TITLE'] ?: $arResult['NAME']);
 
-			$alt = $arPhoto['DESCRIPTION'] ?: ($arPhoto['ALT'] ?: $arResult['NAME']);
-			$title = $arPhoto['DESCRIPTION'] ?: ($arPhoto['TITLE'] ?: $arResult['NAME']);
-
-			$arResult['BIG_GALLERY'][] = array(
-				'DETAIL' => $arPhoto,
-				'PREVIEW' => CFile::ResizeImageGet($img, array('width' => 1500, 'height' => 1500), BX_RESIZE_IMAGE_PROPORTIONAL_ALT, true),
-				'THUMB' => CFile::ResizeImageGet($img , array('width' => 60, 'height' => 60), BX_RESIZE_IMAGE_EXACT, true),
-				'TITLE' => $title,
-				'ALT' => $alt,
-			);
+				$arResult['BIG_GALLERY'][] = array(
+					'DETAIL' => $arPhoto,
+					'PREVIEW' => CFile::ResizeImageGet($img, array('width' => 1500, 'height' => 1500), BX_RESIZE_IMAGE_PROPORTIONAL_ALT, true),
+					'THUMB' => CFile::ResizeImageGet($img, array('width' => 60, 'height' => 60), BX_RESIZE_IMAGE_EXACT, true),
+					'TITLE' => $title,
+					'ALT' => $alt,
+				);
+			}
 		}
 	}
 }
